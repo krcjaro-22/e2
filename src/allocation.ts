@@ -14,21 +14,33 @@ const readout = document.querySelector<HTMLParagraphElement>(
 //residents on supply duty, others are on care, repair, or rest
 let supplyCrew = defaultSupplyCrew;
 
-function suppliesProduced(crewOnSupplies: number): number {
-  return crewOnSupplies * suppliesPerSupplyShift;
+interface ShiftReport {
+  readonly crewSize: number;
+  readonly supplyCrew: number;
+  readonly suppliesProduced: number;
+  readonly suppliesShared: number;
+  readonly balance: number;
 }
 
-function suppliesShared(): number {
-  return crewSize * suppliesPerResident;
+function calculateShift(supplyCrew: number): ShiftReport {
+  const suppliesProduced = supplyCrew * suppliesPerSupplyShift;
+  const suppliesShared = crewSize * suppliesPerResident;
+  return {
+    crewSize: crewSize,
+    supplyCrew,
+    suppliesProduced,
+    suppliesShared,
+    balance: suppliesProduced - suppliesShared,
+  };
 }
 
 function formatBalance(balance: number): string {
   return `${balance > 0 ? "+" : ""}${balance}`;
 }
 
-function drawCrewRoster(crewOnSupplies: number): void {
-  for (let seat = 0; seat < crewSize; seat++) {
-    const onSupplies = seat < crewOnSupplies;
+function drawCrewRoster(shift: ShiftReport): void {
+  for (let seat = 0; seat < shift.crewSize; seat++) {
+    const onSupplies = seat < shift.supplyCrew;
     ctx.fillStyle = onSupplies ? "#27766b" : "#c9d2c9";
     ctx.fillRect(18 + seat * 45, 16, 36, 36);
     ctx.fillStyle = onSupplies ? "#ffffff" : "#233e43";
@@ -37,41 +49,38 @@ function drawCrewRoster(crewOnSupplies: number): void {
   }
 }
 
-function drawProvisioning(
-  crewOnSupplies: number,
-  produced: number,
-  shared: number,
-): void {
+function drawShift(shift: ShiftReport): void {
+  ctx.clearRect(0, 0, canvas.width, canvas.height);
+  drawCrewRoster(shift);
   ctx.fillStyle = "#233e43";
   ctx.font = "14px system-ui";
-  ctx.fillText(`Producers: ${crewOnSupplies} / ${crewSize}`, 18, 76);
-  ctx.fillText(`Production: ${produced}`, 18, 102);
+  ctx.fillText(`Producers: ${shift.supplyCrew} / ${shift.crewSize}`, 18, 76);
+  ctx.fillText(`Production: ${shift.suppliesProduced}`, 18, 102);
   ctx.fillStyle = "#27766b";
-  ctx.fillRect(18, 110, produced * 14, 20);
+  ctx.fillRect(18, 110, shift.suppliesProduced * 14, 20);
   ctx.fillStyle = "#233e43";
-  ctx.fillText(`Consumption: ${shared}`, 18, 154);
+  ctx.fillText(`Consumption: ${shift.suppliesShared}`, 18, 154);
   ctx.fillStyle = "#a44d23";
-  ctx.fillRect(18, 162, shared * 14, 20);
+  ctx.fillRect(18, 162, shift.suppliesShared * 14, 20);
+}
+
+function writeReadout(shift: ShiftReport): void {
+  readout.textContent =
+    `Assigned: ${shift.supplyCrew}/${shift.crewSize} · Production: ${shift.suppliesProduced} · Consumption: ${shift.suppliesShared} · Balance: ${
+      formatBalance(shift.balance)
+    }`;
 }
 
 function renderShift(): void {
-  const produced = suppliesProduced(supplyCrew);
-  const shared = suppliesShared();
-  const balance = produced - shared;
-  ctx.clearRect(0, 0, canvas.width, canvas.height);
-  drawCrewRoster(supplyCrew);
-  drawProvisioning(supplyCrew, produced, shared);
-  readout.textContent =
-    `Assigned: ${supplyCrew}/${crewSize} · Production: ${produced} · Consumption: ${shared} · Balance: ${
-      formatBalance(balance)
-    }`;
+  const shift = calculateShift(supplyCrew);
+  drawShift(shift);
+  writeReadout(shift);
 }
 
 function assignSupplyCrew(count: number): void {
   supplyCrew = Math.min(crewSize, Math.max(0, count));
   renderShift();
 }
-
 document.querySelector<HTMLButtonElement>("#allocation-less")!.onclick = () =>
   assignSupplyCrew(supplyCrew - 1);
 document.querySelector<HTMLButtonElement>("#allocation-more")!.onclick = () =>
