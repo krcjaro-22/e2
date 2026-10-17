@@ -9,59 +9,77 @@ const host = document.querySelector<HTMLDivElement>("#counter-panel-host")!;
 const diagnostic = document.querySelector<HTMLParagraphElement>(
   "#counter-diagnostic",
 )!;
-let count = 0;
+const shieldCapacity = 10;
+let shieldCharge = 0;
 let panel: HTMLParagraphElement | null = null;
 let panelUpdates = 0;
 
-function drawMeter() {
+//what shield means right now, shared by HUD and inspector
+interface ShieldSnapshot {
+  readonly charge: number;
+  readonly capacity: number;
+  readonly missing: number;
+}
+
+function takeShieldSnapshot(): ShieldSnapshot {
+  return {
+    charge: shieldCharge,
+    capacity: shieldCapacity,
+    missing: shieldCapacity - shieldCharge,
+  };
+}
+
+function drawMeter(shield: ShieldSnapshot): void {
   ctx.clearRect(0, 0, canvas.width, canvas.height);
-  for (let i = 0; i < 10; i++) {
-    ctx.fillStyle = i < count ? "#27766b" : "#c9d2c9";
-    ctx.fillRect(12 + i * 28, 24, 24, 48);
+  for (let cell = 0; cell < shield.capacity; cell++) {
+    ctx.fillStyle = cell < shield.charge ? "#27766b" : "#c9d2c9";
+    ctx.fillRect(12 + cell * 28, 24, 24, 48);
   }
   ctx.fillStyle = "#233e43";
   ctx.font = "16px system-ui";
-  ctx.fillText(`${count} / 10 shield`, 12, 100);
-  readout.textContent = `Shield charge: ${count} / 10`;
+  ctx.fillText(`${shield.charge} / ${shield.capacity} shield`, 12, 100);
+  readout.textContent = `Shield charge: ${shield.charge} / ${shield.capacity}`;
 }
 
-function updateStats() {
+function renderInspector(shield: ShieldSnapshot): void {
+  if (!panel) return;
+  panel.textContent =
+    `Shield charge: ${shield.charge} · Missing charge: ${shield.missing}`;
+}
+
+function deliverToInspector(shield: ShieldSnapshot): void {
   panelUpdates++;
   diagnostic.textContent = `Inspector deliveries: ${panelUpdates}`;
-  renderStats();
+  renderInspector(shield);
 }
 
-function renderStats() {
-  if (!panel) return;
-  panel.textContent = `Shield charge: ${count} · Missing charge: ${10 - count}`;
-}
-
-function setCount(next: number) {
-  const bounded = Math.max(0, Math.min(10, next));
-  if (bounded === count) return;
-  count = bounded;
-  drawMeter();
-  if (panel) updateStats();
+function setShieldCharge(next: number): void {
+  const bounded = Math.max(0, Math.min(shieldCapacity, next));
+  if (bounded === shieldCharge) return;
+  shieldCharge = bounded;
+  const shield = takeShieldSnapshot();
+  drawMeter(shield);
+  if (panel) deliverToInspector(shield);
 }
 
 document.querySelector<HTMLButtonElement>("#counter-less")!.onclick = () => {
-  setCount(count - 1);
+  setShieldCharge(shieldCharge - 1);
 };
 document.querySelector<HTMLButtonElement>("#counter-more")!.onclick = () => {
-  setCount(count + 1);
+  setShieldCharge(shieldCharge + 1);
 };
 document.querySelector<HTMLButtonElement>("#counter-reset")!.onclick = () => {
-  setCount(0);
+  setShieldCharge(0);
 };
 document.querySelector<HTMLButtonElement>("#counter-open")!.onclick = () => {
   if (panel) return;
   panel = document.createElement("p");
   host.append(panel);
-  renderStats();
+  renderInspector(takeShieldSnapshot());
 };
 document.querySelector<HTMLButtonElement>("#counter-close")!.onclick = () => {
   if (!panel) return;
   panel.remove();
   panel = null;
 };
-drawMeter();
+drawMeter(takeShieldSnapshot());
