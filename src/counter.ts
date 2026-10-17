@@ -29,6 +29,9 @@ function takeShieldSnapshot(): ShieldSnapshot {
   };
 }
 
+const shieldEvents = new EventTarget();
+const shieldChanged = "shield-changed";
+
 function drawMeter(shield: ShieldSnapshot): void {
   ctx.clearRect(0, 0, canvas.width, canvas.height);
   for (let cell = 0; cell < shield.capacity; cell++) {
@@ -57,10 +60,13 @@ function setShieldCharge(next: number): void {
   const bounded = Math.max(0, Math.min(shieldCapacity, next));
   if (bounded === shieldCharge) return;
   shieldCharge = bounded;
-  const shield = takeShieldSnapshot();
-  drawMeter(shield);
-  if (panel) deliverToInspector(shield);
+  shieldEvents.dispatchEvent(new Event(shieldChanged));
+  if (panel) deliverToInspector(takeShieldSnapshot());
 }
+
+shieldEvents.addEventListener(shieldChanged, () => {
+  drawMeter(takeShieldSnapshot());
+});
 
 document.querySelector<HTMLButtonElement>("#counter-less")!.onclick = () => {
   setShieldCharge(shieldCharge - 1);
