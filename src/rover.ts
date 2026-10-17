@@ -3,6 +3,12 @@ export {};
 const canvas = document.querySelector<HTMLCanvasElement>("#rover-canvas")!;
 const ctx = canvas.getContext("2d")!;
 const readout = document.querySelector<HTMLParagraphElement>("#rover-readout")!;
+const pendingList = document.querySelector<HTMLOListElement>("#rover-pending")!;
+const queueStatus = document.querySelector<HTMLParagraphElement>(
+  "#rover-queue-status",
+)!;
+const runButton = document.querySelector<HTMLButtonElement>("#rover-run")!;
+const clearButton = document.querySelector<HTMLButtonElement>("#rover-clear")!;
 interface Heading {
   readonly name: string;
   readonly dx: number;
@@ -67,21 +73,54 @@ const turnRightCommand: Command = {
   },
 };
 
-function runCommand(command: Command): void {
-  command.execute();
+const pendingCommands: Command[] = [];
+function showPendingCommands(): void {
+  const items = pendingCommands.map((command) => {
+    const item = document.createElement("li");
+    item.textContent = command.label;
+    return item;
+  });
+  pendingList.replaceChildren(...items);
+  queueStatus.textContent = pendingCommands.length === 0
+    ? "Empty"
+    : `${pendingCommands.length} pending`;
+}
+
+function enqueueCommand(command: Command): void {
+  pendingCommands.push(command);
+  showPendingCommands();
+}
+
+function runPendingCommands(): void {
+  const route = pendingCommands.splice(0);
+  for (const command of route) {
+    command.execute();
+  }
   drawRover();
+  showPendingCommands();
+}
+
+function clearPendingCommands(): void {
+  pendingCommands.length = 0;
+  showPendingCommands();
 }
 
 document.querySelector<HTMLButtonElement>("#rover-right")!.onclick = () => {
-  runCommand(turnRightCommand);
+  enqueueCommand(turnRightCommand);
 };
 document.querySelector<HTMLButtonElement>("#rover-forward")!.onclick = () => {
-  runCommand(forwardCommand);
+  enqueueCommand(forwardCommand);
 };
+runButton.onclick = runPendingCommands;
+clearButton.onclick = clearPendingCommands;
+runButton.disabled = false;
+clearButton.disabled = false;
 document.querySelector<HTMLButtonElement>("#rover-reset")!.onclick = () => {
   x = 2;
   y = 2;
   direction = 0;
+  clearPendingCommands();
   drawRover();
 };
 drawRover();
+showPendingCommands();
