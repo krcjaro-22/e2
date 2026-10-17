@@ -48,20 +48,43 @@ function drawCrewRoster(shift: ShiftReport): void {
     ctx.fillText(String(seat + 1), 31 + seat * 45, 40);
   }
 }
+interface SupplyBarRow {
+  readonly label: string;
+  readonly color: string;
+  readonly valueOf: (shift: ShiftReport) => number;
+}
+
+const supplyBarRows: readonly SupplyBarRow[] = [
+  { label: "Production", color: "#27766b", valueOf: (s) => s.suppliesProduced },
+  { label: "Consumption", color: "#a44d23", valueOf: (s) => s.suppliesShared },
+];
+
+const firstRowLabelY = 102;
+const rowSpacing = 52;
+const barOffset = 8;
+const barHeight = 20;
+const pxPerSupply = 14;
+const labelColor = "#233e43";
+
+function drawSupplyBars(shift: ShiftReport): void {
+  ctx.font = "14px system-ui";
+  supplyBarRows.forEach((row, index) => {
+    const labelY = firstRowLabelY + index * rowSpacing;
+    const value = row.valueOf(shift);
+    ctx.fillStyle = labelColor;
+    ctx.fillText(`${row.label}: ${value}`, 18, labelY);
+    ctx.fillStyle = row.color;
+    ctx.fillRect(18, labelY + barOffset, value * pxPerSupply, barHeight);
+  });
+}
 
 function drawShift(shift: ShiftReport): void {
   ctx.clearRect(0, 0, canvas.width, canvas.height);
   drawCrewRoster(shift);
-  ctx.fillStyle = "#233e43";
+  ctx.fillStyle = labelColor;
   ctx.font = "14px system-ui";
   ctx.fillText(`Producers: ${shift.supplyCrew} / ${shift.crewSize}`, 18, 76);
-  ctx.fillText(`Production: ${shift.suppliesProduced}`, 18, 102);
-  ctx.fillStyle = "#27766b";
-  ctx.fillRect(18, 110, shift.suppliesProduced * 14, 20);
-  ctx.fillStyle = "#233e43";
-  ctx.fillText(`Consumption: ${shift.suppliesShared}`, 18, 154);
-  ctx.fillStyle = "#a44d23";
-  ctx.fillRect(18, 162, shift.suppliesShared * 14, 20);
+  drawSupplyBars(shift);
 }
 
 function writeReadout(shift: ShiftReport): void {
