@@ -13,6 +13,7 @@ const shieldCapacity = 10;
 let shieldCharge = 0;
 let panel: HTMLParagraphElement | null = null;
 let panelUpdates = 0;
+let inspectorListener: (() => void) | null = null;
 
 //what shield means right now, shared by HUD and inspector
 interface ShieldSnapshot {
@@ -44,16 +45,35 @@ function drawMeter(shield: ShieldSnapshot): void {
   readout.textContent = `Shield charge: ${shield.charge} / ${shield.capacity}`;
 }
 
-function renderInspector(shield: ShieldSnapshot): void {
-  if (!panel) return;
-  panel.textContent =
+function renderInspector(
+  target: HTMLParagraphElement,
+  shield: ShieldSnapshot,
+): void {
+  target.textContent =
     `Shield charge: ${shield.charge} · Missing charge: ${shield.missing}`;
 }
 
-function deliverToInspector(shield: ShieldSnapshot): void {
-  panelUpdates++;
-  diagnostic.textContent = `Inspector deliveries: ${panelUpdates}`;
-  renderInspector(shield);
+function openInspector(): void {
+  if (panel) return;
+  const opened = document.createElement("p");
+  host.append(opened);
+  renderInspector(opened, takeShieldSnapshot());
+  const listener = () => {
+    panelUpdates++;
+    diagnostic.textContent = `Inspector deliveries: ${panelUpdates}`;
+    renderInspector(opened, takeShieldSnapshot());
+  };
+  shieldEvents.addEventListener(shieldChanged, listener);
+  panel = opened;
+  inspectorListener = listener;
+}
+
+function closeInspector(): void {
+  if (!panel || !inspectorListener) return;
+  shieldEvents.removeEventListener(shieldChanged, inspectorListener);
+  panel.remove();
+  panel = null;
+  inspectorListener = null;
 }
 
 function setShieldCharge(next: number): void {
@@ -61,7 +81,6 @@ function setShieldCharge(next: number): void {
   if (bounded === shieldCharge) return;
   shieldCharge = bounded;
   shieldEvents.dispatchEvent(new Event(shieldChanged));
-  if (panel) deliverToInspector(takeShieldSnapshot());
 }
 
 shieldEvents.addEventListener(shieldChanged, () => {
@@ -78,14 +97,9 @@ document.querySelector<HTMLButtonElement>("#counter-reset")!.onclick = () => {
   setShieldCharge(0);
 };
 document.querySelector<HTMLButtonElement>("#counter-open")!.onclick = () => {
-  if (panel) return;
-  panel = document.createElement("p");
-  host.append(panel);
-  renderInspector(takeShieldSnapshot());
+  openInspector();
 };
 document.querySelector<HTMLButtonElement>("#counter-close")!.onclick = () => {
-  if (!panel) return;
-  panel.remove();
-  panel = null;
+  closeInspector();
 };
 drawMeter(takeShieldSnapshot());
